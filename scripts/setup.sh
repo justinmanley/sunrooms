@@ -4,6 +4,10 @@ sudo apt-get update -qq
 
 sudo apt-get install postgresql-9.3 -y
 sudo apt-get install postgis postgresql-9.3-postgis-2.1 -y
+sudo apt-get install libpq-dev -y
+
+sudo apt-get install python-pip
+sudo apt-get install python-virtualenv
 
 sudo pip install csvkit
 
