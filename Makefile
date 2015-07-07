@@ -35,15 +35,8 @@ addressPointChi.shp: ccaddresses.zip
 	touch $@
 
 .PHONY: ccaddresses.table 
-ccaddresses.table: addressPointChi.shp
+ccaddresses.table: addressPointChi.shp ccaddresses.sql
 	# Synthesize address field out of components.
 	shp2pgsql -I -s 4326 -d $< $(basename $@) | psql -d $(DB_NAME)
-	psql -d $(DB_NAME) -c "ALTER TABLE ccaddresses ADD COLUMN address varchar(171)"
-	psql -d $(DB_NAME) -c "UPDATE ccaddresses SET address = concat_ws(' ', \
-		addrnocom, \
-		stnamecom, \
-		uspspn, \
-		uspsst, \
-		zip5 \
-	)"
+	psql -d $(DB_NAME) -f $(word 2, $^)
 
