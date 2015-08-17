@@ -1,9 +1,8 @@
 sunrooms
 ========
 
-Where are Chicago's sunroom apartments?
+An architectural research project into the question: Where are Chicago's [sunroom apartments](http://greycity.chicagomaroon.com/article/a-sunroom-of-ones-own-2/)?
 
-### Database History
+Code for linking the [City of Chicago building footprints](https://data.cityofchicago.org/Buildings/Building-Footprints-deprecated-August-2015-/qv97-3bvb) dataset with Cook County [property](http://www.cookcountypropertyinfo.com/Pages/PIN-Search.aspx) and [address points](https://datacatalog.cookcountyil.gov/GIS-Maps/ccgisdata-Address-Point-Chicago/jev2-4wjs) datasets has been moved to [chihacknight/edifice](https://github.com/chihacknight/edifice).
 
-* Friday, April 10: Successfully imported data from FOIA request 22606 into a Postgres database using COPY. 
-* Sunday, April 12: Successfully imported the building footprints dataset (https://data.cityofchicago.org/Buildings/Building-Footprints/qv97-3bvb) into Postgres/Postgis using shp2pgsql (see scripts/load).
+Code for identifying sunroom apartments using the combined above datasets will be developed in this repository.
