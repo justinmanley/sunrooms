@@ -4,3 +4,7 @@ include
 lib
 local
 config.yml
+
+classification-tool/dist
+classification-tool/cabal.sandbox.config
+classification-tool/.cabal-sandbox
