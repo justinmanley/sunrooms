@@ -5,6 +5,8 @@ lib
 local
 config.yml
 
+*.pyc
+
 classification-tool/dist
 classification-tool/cabal.sandbox.config
 classification-tool/.cabal-sandbox
