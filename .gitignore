@@ -10,3 +10,7 @@ config.yml
 classification-tool/dist
 classification-tool/cabal.sandbox.config
 classification-tool/.cabal-sandbox
+classification-tool/image-cache
+
+# Data processing artifacts from `make`
+*.table

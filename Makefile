@@ -56,3 +56,13 @@ classification_tool.clean:
 	psql -U postgres -c "DROP TABLE IF EXISTS ${TABLE}; \
 		DROP TYPE IF EXISTS BuildingType"
 	rm -f ${TABLE}.table
+
+classification-tool/image-cache: classification_tool.table
+	mkdir -p $@;
+	PINS=$$(psql --tuples-only -c "SELECT pin FROM classification_tool WHERE property_class = 211 AND stories > 2 AND exterior_construction != 'Frame'" | sed "/^$$/d")
+	for PIN in $$PINS; do echo "http://cookcountyassessor.com/PropertyImage.aspx?pin=$$PIN"; done \
+		| wget --input-file=- --wait=2 --random-wait --directory-prefix=$@ --output-file=cache-images.errors
+	for IMAGE in $@/PropertyImage.aspx?pin=*; \
+	do \
+		mv $$IMAGE $@/$${IMAGE#$@/PropertyImage.aspx?pin=}.jpg
+	done
