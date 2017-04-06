@@ -51,5 +51,10 @@ window.addEventListener('keydown', function(event) {
             reportSunroom(pin, 'Unknown');
             next();
             break;
+
+        case 87: // 'w'
+            reportSunroom(pin, 'BayWindow');
+            next();
+            break;
     }
 });

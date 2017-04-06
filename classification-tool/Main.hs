@@ -15,6 +15,9 @@ import Control.Monad (msum)
 import Data.Monoid (mempty)
 import Data.Maybe (fromJust)
 import Data.Convertible (Convertible, safeConvert, ConvertResult)
+import System.Console.GetOpt (ArgOrder(Permute), ArgDescr(NoArg), getOpt, usageInfo, OptDescr(Option))
+import System.Environment (getArgs)
+import System.Exit (exitWith, ExitCode(ExitSuccess, ExitFailure))
 
 -- NOTE: Keep in sync with the definition of the BuildingType SQL type in
 -- ../Makefile.
@@ -23,6 +26,7 @@ data BuildingType
     | Sunroom
     | BaySunroom
     | Sunporch
+    | BayWindow
     deriving (Read, Show)
 
 instance Convertible BuildingType SqlValue where
@@ -31,22 +35,26 @@ instance Convertible BuildingType SqlValue where
         Sunroom -> SqlString "SUNROOM"
         BaySunroom -> SqlString "BAY_SUNROOM"
         Sunporch -> SqlString "SUNPORCH"
+        BayWindow -> SqlString "BAY_WINDOW"
 
 main :: IO ()
 main = do
+    serverConfig <- getArgs >>= parseFlags
+    let useLocalImageCache = UseLocalImageCache `elem` serverConfig
+
     -- Feasible because the list of all pins can easily fit into memory.
     conn <- db
     pins <- map fromSql . concat <$> quickQuery conn (concat
         [ "SELECT pin FROM classification_tool WHERE property_class = 211 "
         , "AND stories > 2 AND exterior_construction != 'Frame' "
-        , "AND building_type IS NULL "
         , "ORDER BY RANDOM()"
         ]) []
 
     serve Nothing $ msum
         [ dir "js" $ javascript
-        , dir "property" $ property (makePaginationInfo pins)
+        , dir "property" $ property useLocalImageCache (makePaginationInfo pins)
         , dir "report" $ method POST >> reportSunroom
+        , dir "image-cache" $ localImages
         , homePage (head pins)
         ]
 
@@ -55,6 +63,9 @@ db = connectPostgreSQL "dbname = edifice"
 
 javascript :: ServerPart Response
 javascript = serveDirectory EnableBrowsing [] "js"
+
+localImages :: ServerPart Response
+localImages = serveDirectory EnableBrowsing [] "image-cache"
 
 homePage :: Integer -> ServerPart Response
 homePage firstProperty = 
@@ -79,13 +90,13 @@ reportSunroom = do
         lift $ putStrLn "Database failure"
         toResponse <$> internalServerError ("Database failure" :: String)
 
-property :: Map Integer (Maybe Integer, Maybe Integer) -> ServerPart Response
-property paginationInfo = path $ \(pin :: Integer) -> do
+property :: Bool -> Map Integer (Maybe Integer, Maybe Integer) -> ServerPart Response
+property useLocalImageCache paginationInfo = path $ \(pin :: Integer) -> do
     conn <- lift db
 
     statement <- lift $ prepare conn (unlines [
         "SELECT *,",
-        "  encode(ST_AsPng(ST_AsRaster(footprint, 0.3, 0.3, '8BUI')), 'base64') AS footprint ",
+        "  encode(ST_AsPng(ST_AsRaster(ST_Boundary(footprint), 0.3, 0.3, '8BUI')), 'base64') AS footprint ",
         "FROM classification_tool WHERE pin = ?"])
     status <- lift $ execute statement [toSql pin]
 
@@ -133,7 +144,14 @@ property paginationInfo = path $ \(pin :: Integer) -> do
                                         Just pin -> do
                                             H.toHtml $
                                                 H.img ! (A.src . H.textValue . Text.pack $
-                                                    "http://cookcountyassessor.com/PropertyImage.aspx?pin=" ++ pin)
+                                                    imageUrl useLocalImageCache pin)
+
+-- Construct the URL for an image in the Cook County tax assessor's database.
+imageUrl :: Bool -> String -> String
+imageUrl useLocalImageCache pin =
+    if useLocalImageCache
+    then "/image-cache/" ++ pin ++ ".jpg"
+    else "http://cookcountyassessor.com/PropertyImage.aspx?pin=" ++ pin
                                                         
 renderField :: Map String SqlValue -> String -> Html
 renderField row columnName = do
@@ -150,3 +168,29 @@ makePaginationInfo ids =
         Map.fromList $ zip ids (zip (init $ Nothing : justIds) (tail $ justIds ++ [Nothing])) 
     where 
         justIds = map Just ids
+
+-- Server flags
+data Flag
+    = Help
+    | UseLocalImageCache
+    deriving (Eq)
+
+flags =
+    [ Option [] ["use-local-image-cache"] (NoArg UseLocalImageCache)
+        "Use a local cache of building images from the Tax Assessor's office"
+    ]
+
+parseFlags :: [String] -> IO [Flag]
+parseFlags argv = case getOpt Permute flags argv of
+    (args, _, []) -> do
+        if Help `elem` args
+        then do
+            putStrLn (usageInfo header flags)
+            exitWith ExitSuccess
+        else return args
+    (_, _, errs) -> do
+        putStrLn (concat errs ++ usageInfo header flags)
+        exitWith (ExitFailure 1)
+    where
+        header = "Usage: site [options]"
+
